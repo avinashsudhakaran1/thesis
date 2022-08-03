@@ -1,0 +1,5 @@
+training was done with 300 epochs and 16 batch size - the weights are in best.pt
+
+folder: train > exp7
+
+detect folder: detect > 18,19
