@@ -11,6 +11,7 @@ datasets
 Deeplabv3/goprotest1.mp4
 Deeplabv3/goprotest2.mp4
 Deeplabv3/goprotest3.mp4
+Deeplabv3/outputs
 
 Deeplabv3_custom/CFExp
 Deeplabv3_custom/CrackForest
@@ -29,8 +30,7 @@ Semantic-Segmentation-BiSeNet-master/myvenv
 
 yolov5-master/video
 
-# BiSeNet-master
-Deeplabv3
+# Deeplabv3
 Deeplabv3_custom
 Semantic-Segmentation-BiSeNet-master
 yolov5-master
