@@ -78,7 +78,7 @@ class SegmentationDataset(VisionDataset):
             self.mask_list = np.array(sorted(mask_folder_path.glob("*")))
             if seed:
                 np.random.seed(seed)
-                indices = np.arange(len(self.image_list))#np.arange(2000)  #len(self.image_list))
+                indices = np.arange(3000)#np.arange(len(self.image_list))#np.arange(2000)  #len(self.image_list))
                 np.random.shuffle(indices)
                 self.image_list = self.image_list[indices]
                 self.mask_list = self.mask_list[indices]
