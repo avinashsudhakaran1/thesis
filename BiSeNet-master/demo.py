@@ -26,7 +26,7 @@ def predict_on_image(model, args):
     model.eval()
     predict = model(image).squeeze()
     predict = reverse_one_hot(predict)
-    predict = colour_code_segmentation(torch.from_numpy(np.array(predict)), label_info)
+    predict = colour_code_segmentation(predict.cpu().detach().numpy(), label_info)
     predict = cv2.resize(np.uint8(predict), (960, 720))
     cv2.imwrite(args.save_path, cv2.cvtColor(np.uint8(predict), cv2.COLOR_RGB2BGR))
 
@@ -37,7 +37,7 @@ def main(params):
     parser.add_argument('--video', action='store_true', default=False, help='predict on video')
     parser.add_argument('--checkpoint_path', type=str, default=None, help='The path to the pretrained weights of model')
     parser.add_argument('--context_path', type=str, default="resnet101", help='The context path model you are using.')
-    parser.add_argument('--num_classes', type=int, default=12, help='num of object classes (with void)')
+    parser.add_argument('--num_classes', type=int, default=12, help='num of object classes (with void)') #only 12 classes for the demo
     parser.add_argument('--data', type=str, default=None, help='Path to image or video for prediction')
     parser.add_argument('--crop_height', type=int, default=720, help='Height of cropped/resized input image to network')
     parser.add_argument('--crop_width', type=int, default=960, help='Width of cropped/resized input image to network')
