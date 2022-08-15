@@ -24,7 +24,7 @@ def train_model(model, criterion, dataloaders, optimizer, metrics, bpath,
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
 
-    torch.cuda.memory_summary(device=None, abbreviated=False)    #added new
+    # torch.cuda.memory_summary(device=None, abbreviated=False)    #added new
 
     for epoch in range(1, num_epochs + 1):
         torch.cuda.empty_cache()
@@ -59,10 +59,10 @@ def train_model(model, criterion, dataloaders, optimizer, metrics, bpath,
                         if name == 'f1_score':
                             # Use a classification threshold of 0.1
                             batchsummary[f'{phase}_{name}'].append(
-                                metric(y_true > 0, y_pred > 0.1))
+                                metric(y_true > 0, y_pred > 0.25))
                         # else:
                         #     batchsummary[f'{phase}_{name}'].append(
-                        #         metric(y_true.astype('uint8'), y_pred))
+                        #         metric(y_true, y_pred))
 
                     # backward + optimize only if in training phase
                     if phase == 'Train':

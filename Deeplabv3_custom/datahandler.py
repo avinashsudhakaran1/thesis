@@ -96,7 +96,7 @@ def get_dataloader_single_folder(data_dir: str,
         x: DataLoader(image_datasets[x],
                       batch_size=batch_size,
                       shuffle=True,
-                      num_workers=8)
+                      num_workers=6) #used to be 8, changed to match CPU core count
         for x in ['Train', 'Test']
     }
     return dataloaders
