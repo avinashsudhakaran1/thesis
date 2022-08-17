@@ -19,11 +19,11 @@ from trainer import train_model
               help="Specify the data directory.")
 @click.option(
     "--epochs",
-    default=100,
+    default=25,
     type=int,
     help="Specify the number of epochs you want to run the experiment for.")
 @click.option("--batch-size",
-              default=16,
+              default=4,
               type=int,
               help="Specify the batch size for the dataloader.")
 def main(data_directory, epochs, batch_size):
@@ -33,7 +33,7 @@ def main(data_directory, epochs, batch_size):
     model.train()
     data_directory = Path(data_directory)
     # Create the experiment directory if not present
-    exp_directory = Path("./output/" + datetime.now().strftime("%Y%m%d_%H%M%S"))
+    exp_directory = Path("./outputs/" + datetime.now().strftime("%Y%m%d_%H%M%S"))
     if not exp_directory.exists():
         exp_directory.mkdir()
 
@@ -49,7 +49,7 @@ def main(data_directory, epochs, batch_size):
     # Create the dataloader
     dataloaders = datahandler.get_dataloader_single_folder(
         data_directory, batch_size=batch_size)
-    model = train_model(model,
+    _ = train_model(model,
                     criterion,
                     dataloaders,
                     optimizer,

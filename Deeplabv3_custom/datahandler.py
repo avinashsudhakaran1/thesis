@@ -78,7 +78,7 @@ def get_dataloader_single_folder(data_dir: str,
         Train and Test dataloaders.
     """
     data_transforms = transforms.Compose([
-          transforms.Resize((64,64)),
+          transforms.Resize((120,160)),
           transforms.ToTensor()
           ])
 
@@ -96,7 +96,7 @@ def get_dataloader_single_folder(data_dir: str,
         x: DataLoader(image_datasets[x],
                       batch_size=batch_size,
                       shuffle=True,
-                      num_workers=6) #used to be 8, changed to match CPU core count
+                      num_workers=2)
         for x in ['Train', 'Test']
     }
     return dataloaders
