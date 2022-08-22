@@ -24,6 +24,7 @@ Deeplabv3_custom/DoorsMimicClosedOutput
 Deeplabv3_custom/DoorsMimicOutput
 Deeplabv3_custom/DoorsSmall
 Deeplabv3_custom/DoorsSmallExp
+Deeplabv3_custom/TestDoors
 
 Semantic-Segmentation-BiSeNet-master/data
 Semantic-Segmentation-BiSeNet-master/myvenv
@@ -31,3 +32,6 @@ Semantic-Segmentation-BiSeNet-master/model.h5
 
 yolov5-master/video
 yolov5-master/runs
+
+labels
+NewDoors
