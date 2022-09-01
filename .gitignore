@@ -35,3 +35,5 @@ yolov5-master/runs
 
 labels
 NewDoors
+
+*.svo
