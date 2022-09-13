@@ -14,10 +14,13 @@ def main():
     for image in images:
         if 'left' in image:
             path = f"C:/Users/Fred/Desktop/Thesis/ZED/export3/{image}"
-            # print(path)
+            depth_image_name = "depth" + image[4:]
+            depth_path = f"C:/Users/Fred/Desktop/Thesis/ZED/export3/{depth_image_name}"
             src_img = cv2.imread(path)
+            depth_img = cv2.imread(depth_path)
+
             line_arr = houghlines(src_img)
-            valid_line_arr = find_gaps(line_arr,src_img)
+            valid_line_arr = find_gaps(line_arr,depth_img)
             drawlines(src_img, valid_line_arr)
     #closing all open windows 
     cv2.destroyAllWindows()
@@ -34,14 +37,17 @@ def drawlines(img, arr):
     # cv2.imwrite("./imagewithlines.jpg",src_img)
     cv2.waitKey(1)
 
-
-def find_gaps(line_arr,img):
+valid_line_arr = []
+def find_gaps(line_arr,depth_img):
     prev = None
+
+    door_error_thresh = 20
+    open_door_thresh = 30
 
     #sort line array based on the x value of the first tuple (start point x) so that we can scan from left to right
     line_arr.sort(key=lambda tup: tup[0])
 
-    valid_line_arr = []
+    
     if(len(line_arr) > 1): #can only perform gap finding if at least two lines found
         for i,line in enumerate(line_arr):
             if(i > 0): #skip the first line
@@ -52,10 +58,27 @@ def find_gaps(line_arr,img):
                 prev_pt_2 = prev[1] #end of prev line
 
                 if(abs(pt_1[0] - prev_pt_1[0]) > 200): #if the difference in x values of the two lines are legit
-                    #we have a valid gap so append the lines we want to keep on the image
-                    valid_line_arr.append(prev)
-                    valid_line_arr.append(line)
                     #check the depth values here
+                    midpoint_cur = ( int((pt_1[0] + pt_2[0])/2) + door_error_thresh , int((pt_1[1] + pt_2[1])/2) )   #move point to the right a bit more
+                    midpoint_prev = ( int((prev_pt_1[0] + prev_pt_2[0])/2) - door_error_thresh , int((prev_pt_1[1] + prev_pt_2[1])/2) )   #move point to the left a bit more
+                    mid_midpoint = int((midpoint_cur[0] + midpoint_prev[0]) / 2)
+                    #filter depth img into single channel
+                    filtered_depth_img = depth_img[:,:,1]
+                    #find the horizontal line of pixels at the y position of the midpoint of the vert lines
+                    depth_arr = filtered_depth_img[midpoint_prev[1]]
+                    mid_depth_check = depth_arr[mid_midpoint]
+                    left_depth_check = depth_arr[midpoint_prev[0]]
+                    right_depth_check = depth_arr[midpoint_cur[0]]
+                    avg_front_plane = int((left_depth_check + right_depth_check) / 2)
+                    #filter arr into just the width of the door
+                    # depth_arr = depth_arr[midpoint_prev[0] : midpoint_cur[0]]
+
+                    if(avg_front_plane - mid_depth_check  > open_door_thresh):
+                        #clear old state
+                        valid_line_arr.clear()
+                        #we have a valid gap so append the lines we want to keep on the image
+                        valid_line_arr.append(prev)
+                        valid_line_arr.append(line)
 
 
             prev = line
