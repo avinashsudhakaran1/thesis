@@ -44,7 +44,7 @@ def main():
     ##############  ITEMS TO DISPLAY   ######################
     image = sl.Mat() # rgb image
     depth_measure = sl.Mat(camera_info.camera_resolution.width, camera_info.camera_resolution.height, sl.MAT_TYPE.F32_C1)
-    depth_display = sl.Mat(camera_info.camera_resolution.width, camera_info.camera_resolution.height, sl.MAT_TYPE.U8_C4)
+    depth_display = sl.Mat()
 
 
 
@@ -60,7 +60,8 @@ def main():
         zed.retrieve_image(depth_display, sl.VIEW.DEPTH)
         # Use get_data() to get the numpy array
         image_depth_array = depth_display.get_data()
-        # print(image_depth_array)
+        # image_depth_array = image_depth_array[:,:,3]
+        print(image_depth_array)
         # image_depth = Image.fromarray(image_depth_array)
 
         # # Naming a window
