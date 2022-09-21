@@ -2,7 +2,9 @@ import cv2
 import os
 import math
 import numpy as np
-
+import sys
+import pyzed.sl as sl
+from pathlib import Path
 #pic243
 
 
@@ -11,19 +13,64 @@ def main():
     # path = r"C:/Users/Fred/Desktop/Thesis/ZED/export3/left000243.png"
     # path = r"C:/Users/Fred/Desktop/Thesis/ZED/export3/left000000.png"
     # path = r"C:/Users/Fred/Desktop/Thesis/ZED/export3/left000144.png"
-    for image in images:
-        if 'left' in image:
-            path = f"C:/Users/Fred/Desktop/Thesis/ZED/export3/{image}"
-            depth_image_name = "depth" + image[4:]
-            depth_path = f"C:/Users/Fred/Desktop/Thesis/ZED/export3/{depth_image_name}"
-            src_img = cv2.imread(path)
-            depth_img = cv2.imread(depth_path)
+    
+    # Specify SVO path parameter
+    svo_input_path = r"C:/Users/Fred/Desktop/Thesis/doorway.svo"
+    init_params = sl.InitParameters()
+    init_params.set_from_svo_file(str(svo_input_path))
+    init_params.svo_real_time_mode = False  # Don't convert in realtime
+    init_params.coordinate_units = sl.UNIT.MILLIMETER  # Use milliliter units (for depth measurements)
+
+    # Create ZED objects
+    zed = sl.Camera()
+
+    # Open the SVO file specified as a parameter
+    err = zed.open(init_params)
+    if err != sl.ERROR_CODE.SUCCESS:
+        sys.stdout.write(repr(err))
+        zed.close()
+        exit()
+
+    # Prepare single image containers
+    left_image = sl.Mat()
+    depth_image = sl.Mat()
+
+    rt_param = sl.RuntimeParameters()
+    rt_param.sensing_mode = sl.SENSING_MODE.FILL
+
+    # Start SVO conversion to AVI/SEQUENCE
+    sys.stdout.write("Starting video....\n")
+
+    nb_frames = zed.get_svo_number_of_frames()
+
+    while True:
+        if zed.grab(rt_param) == sl.ERROR_CODE.SUCCESS:
+            svo_position = zed.get_svo_position()
+
+            # Retrieve SVO images
+            zed.retrieve_image(left_image, sl.VIEW.LEFT)
+            zed.retrieve_image(depth_image, sl.VIEW.DEPTH)
+
+            # for image in images:
+            #     if 'left' in image:
+            # path = f"C:/Users/Fred/Desktop/Thesis/ZED/export3/{image}"
+            # depth_image_name = "depth" + image[4:]
+            # depth_path = f"C:/Users/Fred/Desktop/Thesis/ZED/export3/{depth_image_name}"
+            src_img = left_image.get_data()
+            depth_img = depth_image.get_data()
 
             line_arr = houghlines(src_img)
             valid_line_arr = find_gaps(line_arr,depth_img)
             drawlines(src_img, valid_line_arr)
-    #closing all open windows 
-    cv2.destroyAllWindows()
+            #closing all open windows 
+            # cv2.destroyAllWindows()
+            # Check if we have reached the end of the video
+            if svo_position >= (nb_frames - 1):  # End of SVO
+                sys.stdout.write("\nSVO end has been reached. Exiting now.\n")
+                break
+    zed.close()
+    return 0
+    
 
 
 def drawlines(img, arr):
@@ -94,22 +141,25 @@ def houghlines(src_img):
 
     lines = cv2.HoughLines(dst_img, 1, np.pi / 180, 150, None, 0, 0)
     line_arr = []
-    for i in range(0, len(lines)):
-        rho_l = lines[i][0][0]
-        theta_l = lines[i][0][1]
-        a_l = math.cos(theta_l)
-        b_l = math.sin(theta_l)
-        x0_l = a_l * rho_l
-        y0_l = b_l * rho_l
-        pt1_l = (int(x0_l + 1000*(-b_l)), int(y0_l + 1000*(a_l)))
-        pt2_l = (int(x0_l - 1000*(-b_l)), int(y0_l - 1000*(a_l)))
+    try:
+        for i in range(0, len(lines)):
+            rho_l = lines[i][0][0]
+            theta_l = lines[i][0][1]
+            a_l = math.cos(theta_l)
+            b_l = math.sin(theta_l)
+            x0_l = a_l * rho_l
+            y0_l = b_l * rho_l
+            pt1_l = (int(x0_l + 1000*(-b_l)), int(y0_l + 1000*(a_l)))
+            pt2_l = (int(x0_l - 1000*(-b_l)), int(y0_l - 1000*(a_l)))
 
-        #delta x should always be less than delta y to be a sort of vertical line
-        delta_X = abs(pt2_l[0] - pt1_l[0]) 
-        delta_Y = abs(pt2_l[1] - pt1_l[1])
-        angle_deg = (math.atan2(delta_X, delta_Y) * 180 / math.pi) #angle from vertical axis
-        if(angle_deg < 20):
-            line_arr.append((pt1_l,pt2_l))
+            #delta x should always be less than delta y to be a sort of vertical line
+            delta_X = abs(pt2_l[0] - pt1_l[0]) 
+            delta_Y = abs(pt2_l[1] - pt1_l[1])
+            angle_deg = (math.atan2(delta_X, delta_Y) * 180 / math.pi) #angle from vertical axis
+            if(angle_deg < 20):
+                line_arr.append((pt1_l,pt2_l))
+    except TypeError: #doesnt always detect lines so can return Nonetype
+        pass
 
     return line_arr
 
