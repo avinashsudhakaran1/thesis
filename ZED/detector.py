@@ -4,15 +4,9 @@ import math
 import numpy as np
 import sys
 import pyzed.sl as sl
-from pathlib import Path
-#pic243
-
 
 def main():
     images = os.listdir('./export3')
-    # path = r"C:/Users/Fred/Desktop/Thesis/ZED/export3/left000243.png"
-    # path = r"C:/Users/Fred/Desktop/Thesis/ZED/export3/left000000.png"
-    # path = r"C:/Users/Fred/Desktop/Thesis/ZED/export3/left000144.png"
     
     # Specify SVO path parameter
     svo_input_path = r"C:/Users/Fred/Desktop/Thesis/doorway.svo"
@@ -38,11 +32,11 @@ def main():
     rt_param = sl.RuntimeParameters()
     rt_param.sensing_mode = sl.SENSING_MODE.FILL
 
-    # Start SVO conversion to AVI/SEQUENCE
     sys.stdout.write("Starting video....\n")
 
     nb_frames = zed.get_svo_number_of_frames()
 
+    img_array = []
     while True:
         if zed.grab(rt_param) == sl.ERROR_CODE.SUCCESS:
             svo_position = zed.get_svo_position()
@@ -61,13 +55,21 @@ def main():
 
             line_arr = houghlines(src_img)
             valid_line_arr = find_gaps(line_arr,depth_img)
-            drawlines(src_img, valid_line_arr)
-            #closing all open windows 
-            # cv2.destroyAllWindows()
+            img_array.append(drawlines(src_img, valid_line_arr))
             # Check if we have reached the end of the video
             if svo_position >= (nb_frames - 1):  # End of SVO
                 sys.stdout.write("\nSVO end has been reached. Exiting now.\n")
                 break
+            
+    height, width, layers = img_array[0].shape
+    size = (width,height)
+    out = cv2.VideoWriter('detection.mp4',cv2.VideoWriter_fourcc(*'MP4V'), 15, size)
+    
+    for i in range(len(img_array)):
+        out.write(img_array[i])
+    out.release()
+    #closing all open windows 
+    cv2.destroyAllWindows()
     zed.close()
     return 0
     
@@ -83,6 +85,7 @@ def drawlines(img, arr):
     cv2.imshow("Image with lines", img)
     # cv2.imwrite("./imagewithlines.jpg",src_img)
     cv2.waitKey(1)
+    return img
 
 valid_line_arr = []
 def find_gaps(line_arr,depth_img):
@@ -106,8 +109,16 @@ def find_gaps(line_arr,depth_img):
 
                 if(abs(pt_1[0] - prev_pt_1[0]) > 200): #if the difference in x values of the two lines are legit
                     #check the depth values here
-                    midpoint_cur = ( int((pt_1[0] + pt_2[0])/2) + door_error_thresh , int((pt_1[1] + pt_2[1])/2) )   #move point to the right a bit more
-                    midpoint_prev = ( int((prev_pt_1[0] + prev_pt_2[0])/2) - door_error_thresh , int((prev_pt_1[1] + prev_pt_2[1])/2) )   #move point to the left a bit more
+                    if ( int((pt_1[0] + pt_2[0])/2) + door_error_thresh <= depth_img.shape[1]): #if the threshold doesnt push it past the width of the image
+                        midpoint_cur = ( int((pt_1[0] + pt_2[0])/2) + door_error_thresh , int((pt_1[1] + pt_2[1])/2) )   #calculate midpoint of right line and move point to the right a bit more
+                    else:
+                        midpoint_cur = ( int((pt_1[0] + pt_2[0])/2) , int((pt_1[1] + pt_2[1])/2) )
+                    
+                    if ( int((pt_1[0] + pt_2[0])/2) + door_error_thresh >= 0): #if the threshold doesnt push it past the width of the image
+                        midpoint_prev = ( int((prev_pt_1[0] + prev_pt_2[0])/2) - door_error_thresh , int((prev_pt_1[1] + prev_pt_2[1])/2) )   #calculate midpoint of left line and move point to the left a bit more
+                    else:
+                        midpoint_prev = ( int((prev_pt_1[0] + prev_pt_2[0])/2), int((prev_pt_1[1] + prev_pt_2[1])/2) )   #calculate midpoint of left line and move point to the left a bit more
+
                     mid_midpoint = int((midpoint_cur[0] + midpoint_prev[0]) / 2)
                     #filter depth img into single channel
                     filtered_depth_img = depth_img[:,:,1]
