@@ -9,8 +9,8 @@ def main():
     images = os.listdir('./export3')
     
     # Specify SVO path parameter
-    svo_input_path = r"C:/Users/Fred/Desktop/Thesis/doorway.svo"
     init_params = sl.InitParameters()
+    svo_input_path = r"C:/Users/Fred/Desktop/Thesis/doorway.svo"
     init_params.set_from_svo_file(str(svo_input_path))
     init_params.svo_real_time_mode = False  # Don't convert in realtime
     init_params.coordinate_units = sl.UNIT.MILLIMETER  # Use milliliter units (for depth measurements)
