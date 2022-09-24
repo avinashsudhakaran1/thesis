@@ -9,6 +9,7 @@ import os
 import math
 import sys
 import pyzed.sl as sl
+import time
 
 def main():
     model = load_model()
@@ -17,7 +18,7 @@ def main():
     svo_input_path = r"C:/Users/Fred/Desktop/Thesis/doorway.svo"
     init_params = sl.InitParameters()
     init_params.set_from_svo_file(str(svo_input_path))
-    init_params.svo_real_time_mode = False  # Don't convert in realtime
+    # init_params.svo_real_time_mode = False  # Don't convert in realtime
     init_params.coordinate_units = sl.UNIT.MILLIMETER  # Use milliliter units (for depth measurements)
 
     # Create ZED objects
@@ -45,14 +46,24 @@ def main():
     while True:
         if zed.grab(rt_param) == sl.ERROR_CODE.SUCCESS:
             svo_position = zed.get_svo_position()
-
             # Retrieve SVO images
             zed.retrieve_image(left_image, sl.VIEW.LEFT)
-
             src_img = left_image.get_data()
+            
+            start = time.time()
 
             median_img = segment(model,src_img)
-            find_blob(median_img)
+            
+
+            post_seg = time.time()
+            post_seg_diff = post_seg - start
+            print("SEGMENT TIME:   " + str(post_seg_diff))
+            
+            find_blob(median_img,src_img)
+
+            blob_time = time.time() 
+            blob_time_diff = (blob_time - post_seg)
+            print("BLOB TIME:::    " + str(blob_time_diff))
             
             # Check if we have reached the end of the video
             if svo_position >= (nb_frames - 1):  # End of SVO
@@ -88,23 +99,14 @@ def load_model():
 
 
 def segment(model,img):
-    ### Sample Prediction
-    # door = 'Door' + '1800'
-    # print(f'{input_folder}/Masks/{door}.png')
-
-    # # Read  a sample image from the data-set
-    # img = cv2.imread(f'{input_folder}/Images/{door}.png').transpose(2,0,1).reshape(1,3,640,480)
+    #transpose to rgb image format 
     img = img[:,:,:3].transpose(2,0,1).reshape(1,3,1080,1920)
+
     with torch.no_grad():
         a = model(torch.from_numpy(img).type(torch.cuda.FloatTensor)/255) #/255 makes array of numbers from 0 to 1
-    # Plot histogram of the prediction to find a suitable threshold. From the histogram a 0.1 looks like a good choice.
-    plt.hist(a['out'].data.cpu().numpy().flatten())
 
     median = np.median(a['out'].data.cpu().numpy().flatten())
-    print(median)
     mean = a['out'].data.cpu().numpy().flatten().mean()
-    print(mean)
-
 
     # Plot the input image, ground truth and the predicted output
     # rgb_image = cv2.cvtColor(cv2.imread(f'{input_folder}/Images/{door}.png'), cv2.COLOR_BGR2RGB)
@@ -120,7 +122,7 @@ def segment(model,img):
     return median_img_array
 
 
-def find_blob(median_img_array):
+def find_blob(median_img_array,rgb_image):
     #######     FIND BLOB    ########
     #https://stackoverflow.com/questions/56589691/how-to-leave-only-the-largest-blob-in-an-image 
 
@@ -138,10 +140,10 @@ def find_blob(median_img_array):
     out = np.zeros(inter.shape, np.uint8)
     out = cv2.bitwise_and(input_img, out)
     # draw the biggest contour (c) in green
-    cv2.drawContours(out, [biggest_c], -1, 255, cv2.FILLED)
-    cv2.rectangle(out,(x,y),(x+w,y+h),255,10)
+    cv2.drawContours(rgb_image[:,:], [biggest_c], -1, 255, cv2.FILLED)
+    cv2.rectangle(rgb_image[:,:],(x,y),(x+w,y+h),255,10)
 
-    cv2.imshow('out', out)
+    cv2.imshow('out', rgb_image[:,:])
     cv2.waitKey(1)
 
 
