@@ -52,14 +52,14 @@ def main():
             
             start = time.time()
 
-            median_img = segment(model,src_img)
+            segmented_img = segment(model,src_img)
             
 
             post_seg = time.time()
             post_seg_diff = post_seg - start
             print("SEGMENT TIME:   " + str(post_seg_diff))
             
-            find_blob(median_img,src_img)
+            find_blob(segmented_img,src_img)
 
             blob_time = time.time() 
             blob_time_diff = (blob_time - post_seg)
@@ -122,14 +122,14 @@ def segment(model,img):
     return median_img_array
 
 
-def find_blob(median_img_array,rgb_image):
+def find_blob(segmented_img,rgb_image):
     #######     FIND BLOB    ########
     #https://stackoverflow.com/questions/56589691/how-to-leave-only-the-largest-blob-in-an-image 
 
     # Read image as black and white instead of true or false
-    input_img = median_img_array * np.uint8(255)
+    segmented_img_bw = segmented_img * np.uint8(255)
     # Generate intermediate image; use morphological closing to keep parts of the brain together
-    inter = cv2.morphologyEx(input_img, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)))
+    inter = cv2.morphologyEx(segmented_img_bw, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)))
 
     # Find largest contour in intermediate image
     contours, _ = cv2.findContours(inter, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
@@ -138,7 +138,7 @@ def find_blob(median_img_array,rgb_image):
 
     # Output
     out = np.zeros(inter.shape, np.uint8)
-    out = cv2.bitwise_and(input_img, out)
+    out = cv2.bitwise_and(segmented_img_bw, out)
     # draw the biggest contour (c) in green
     cv2.drawContours(rgb_image[:,:], [biggest_c], -1, 255, cv2.FILLED)
     cv2.rectangle(rgb_image[:,:],(x,y),(x+w,y+h),255,10)
