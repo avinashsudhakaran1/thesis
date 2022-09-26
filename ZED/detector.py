@@ -15,6 +15,7 @@ def main():
     init_params.set_from_svo_file(str(svo_input_path))
     init_params.svo_real_time_mode = False  # Don't convert in realtime
     init_params.coordinate_units = sl.UNIT.METER  # Use milliliter units (for depth measurements)
+    init_params.coordinate_system = sl.COORDINATE_SYSTEM.RIGHT_HANDED_Y_UP
 
     # Create ZED objects
     zed = sl.Camera()
