@@ -10,7 +10,7 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "cwd": "C:/Users/Fred/Desktop/Thesis/Deeplabv3_custom",
+            "cwd": "C:/Users/Fred/Desktop/Thesis/ZED",
             "justMyCode": true
         }
     ]

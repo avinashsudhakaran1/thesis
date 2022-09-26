@@ -5,6 +5,7 @@ import numpy as np
 import sys
 import pyzed.sl as sl
 
+img_array = []
 def main():
     images = os.listdir('./export3')
     
@@ -13,7 +14,7 @@ def main():
     init_params = sl.InitParameters()
     init_params.set_from_svo_file(str(svo_input_path))
     init_params.svo_real_time_mode = False  # Don't convert in realtime
-    init_params.coordinate_units = sl.UNIT.MILLIMETER  # Use milliliter units (for depth measurements)
+    init_params.coordinate_units = sl.UNIT.METER  # Use milliliter units (for depth measurements)
 
     # Create ZED objects
     zed = sl.Camera()
@@ -28,6 +29,7 @@ def main():
     # Prepare single image containers
     left_image = sl.Mat()
     depth_image = sl.Mat()
+    point_cloud = sl.Mat()
 
     rt_param = sl.RuntimeParameters()
     rt_param.sensing_mode = sl.SENSING_MODE.FILL
@@ -36,7 +38,10 @@ def main():
 
     nb_frames = zed.get_svo_number_of_frames()
 
-    img_array = []
+    output_file = open("door_location.csv","a")
+    # img_array = []
+    #OUTPUT AS VIDEO
+    video = cv2.VideoWriter('detection.mp4',cv2.VideoWriter_fourcc(*'mp4v'), 10, (1920, 1080))
     while True:
         if zed.grab(rt_param) == sl.ERROR_CODE.SUCCESS:
             svo_position = zed.get_svo_position()
@@ -44,7 +49,8 @@ def main():
             # Retrieve SVO images
             zed.retrieve_image(left_image, sl.VIEW.LEFT)
             zed.retrieve_image(depth_image, sl.VIEW.DEPTH)
-
+            # Retrieve colored point cloud. Point cloud is aligned on the left image.
+            zed.retrieve_measure(point_cloud, sl.MEASURE.XYZRGBA)
             # for image in images:
             #     if 'left' in image:
             # path = f"C:/Users/Fred/Desktop/Thesis/ZED/export3/{image}"
@@ -54,21 +60,22 @@ def main():
             depth_img = depth_image.get_data()
 
             line_arr = houghlines(src_img)
-            valid_line_arr = find_gaps(line_arr,depth_img)
-            img_array.append(drawlines(src_img, valid_line_arr))
+            valid_line_arr = find_gaps(line_arr,depth_img,point_cloud,svo_position, output_file)
+            if(len(valid_line_arr) > 0):
+                img_out = drawlines(src_img, valid_line_arr)
+                video.write(img_out[:,:,:3])
             # Check if we have reached the end of the video
-            if svo_position >= (nb_frames - 1):  # End of SVO
+            if svo_position >= 50:#(nb_frames - 1):  # End of SVO
                 sys.stdout.write("\nSVO end has been reached. Exiting now.\n")
                 break
-            
-    height, width, layers = img_array[0].shape
-    size = (width,height)
-    out = cv2.VideoWriter('detection.mp4',cv2.VideoWriter_fourcc(*'MP4V'), 15, size)
+   
+    # for image in img_array:
+    #     image = image[:,:,:3]
+    #     video.write(image)
     
-    for i in range(len(img_array)):
-        out.write(img_array[i])
-    out.release()
-    #closing all open windows 
+    #closing all relevant out
+    video.release()
+    output_file.close()
     cv2.destroyAllWindows()
     zed.close()
     return 0
@@ -88,7 +95,7 @@ def drawlines(img, arr):
     return img
 
 valid_line_arr = []
-def find_gaps(line_arr,depth_img):
+def find_gaps(line_arr,depth_img, point_cloud,svo_position, output_file):
     prev = None
 
     door_error_thresh = 20
@@ -109,34 +116,59 @@ def find_gaps(line_arr,depth_img):
 
                 if(abs(pt_1[0] - prev_pt_1[0]) > 200): #if the difference in x values of the two lines are legit
                     #check the depth values here
-                    if ( int((pt_1[0] + pt_2[0])/2) + door_error_thresh <= depth_img.shape[1]): #if the threshold doesnt push it past the width of the image
+                    if ( int((pt_1[0] + pt_2[0])/2) + door_error_thresh <= depth_img.shape[1]): #if the threshold doesnt push it past left edge of the image
                         midpoint_cur = ( int((pt_1[0] + pt_2[0])/2) + door_error_thresh , int((pt_1[1] + pt_2[1])/2) )   #calculate midpoint of right line and move point to the right a bit more
                     else:
                         midpoint_cur = ( int((pt_1[0] + pt_2[0])/2) , int((pt_1[1] + pt_2[1])/2) )
                     
-                    if ( int((pt_1[0] + pt_2[0])/2) + door_error_thresh >= 0): #if the threshold doesnt push it past the width of the image
+                    if ( int((pt_1[0] + pt_2[0])/2) + door_error_thresh >= 0): #if the threshold doesnt push it past right edge of the image
                         midpoint_prev = ( int((prev_pt_1[0] + prev_pt_2[0])/2) - door_error_thresh , int((prev_pt_1[1] + prev_pt_2[1])/2) )   #calculate midpoint of left line and move point to the left a bit more
                     else:
                         midpoint_prev = ( int((prev_pt_1[0] + prev_pt_2[0])/2), int((prev_pt_1[1] + prev_pt_2[1])/2) )   #calculate midpoint of left line and move point to the left a bit more
 
                     mid_midpoint = int((midpoint_cur[0] + midpoint_prev[0]) / 2)
+
+                    err, left_pc_val = point_cloud.get_value(midpoint_prev[0],midpoint_prev[1])
+                    left_distance = math.sqrt(left_pc_val[0] * left_pc_val[0] + left_pc_val[1] * left_pc_val[1] + left_pc_val[2] * left_pc_val[2])
+                    err, right_pc_val = point_cloud.get_value(midpoint_cur[0],midpoint_cur[1])
+                    right_distance = math.sqrt(right_pc_val[0] * right_pc_val[0] + right_pc_val[1] * right_pc_val[1] + right_pc_val[2] * right_pc_val[2])
+
+                    err, middle_pc_val = point_cloud.get_value(mid_midpoint,midpoint_cur[1]) #mid mid point and using y value of current (could also be prev, redundant)
+                    middle_distance = math.sqrt(middle_pc_val[0] * middle_pc_val[0] + middle_pc_val[1] * middle_pc_val[1] + middle_pc_val[2] * middle_pc_val[2])
+
                     #filter depth img into single channel
-                    filtered_depth_img = depth_img[:,:,1]
-                    #find the horizontal line of pixels at the y position of the midpoint of the vert lines
-                    depth_arr = filtered_depth_img[midpoint_prev[1]]
-                    mid_depth_check = depth_arr[mid_midpoint]
-                    left_depth_check = depth_arr[midpoint_prev[0]]
-                    right_depth_check = depth_arr[midpoint_cur[0]]
-                    avg_front_plane = int((left_depth_check + right_depth_check) / 2)
+                    # filtered_depth_img = depth_img[:,:,1]
+                    # #find the horizontal line of pixels at the y position of the midpoint of the vert lines
+                    # depth_arr = filtered_depth_img[midpoint_prev[1]]
+                    # mid_depth_check = depth_arr[mid_midpoint]
+                    # left_depth_check = depth_arr[midpoint_prev[0]]
+                    # right_depth_check = depth_arr[midpoint_cur[0]]
+                    # avg_front_plane = int((left_depth_check + right_depth_check) / 2)
                     #filter arr into just the width of the door
                     # depth_arr = depth_arr[midpoint_prev[0] : midpoint_cur[0]]
 
-                    if(avg_front_plane - mid_depth_check  > open_door_thresh):
+                    # if(avg_front_plane - mid_depth_check  > open_door_thresh):
+                    open_distance_threshold = 0.5 #(metres)
+
+                    if(middle_distance - min(left_distance,right_distance)  > open_distance_threshold):
                         #clear old state
                         valid_line_arr.clear()
                         #we have a valid gap so append the lines we want to keep on the image
                         valid_line_arr.append(prev)
                         valid_line_arr.append(line)
+                        # Get and print distance value in mm at the center of the image
+                        # We measure the distance camera - object using Euclidean distance
+                        print(midpoint_cur[0])
+                        print(midpoint_cur[1])
+                        err, pc_val = point_cloud.get_value(midpoint_cur[0],midpoint_cur[1])
+
+                        distance = math.sqrt(pc_val[0] * pc_val[0] + pc_val[1] * pc_val[1] + pc_val[2] * pc_val[2])
+                        print(distance)   
+
+                        #output coordinates of door to file
+                        output_text = str(svo_position) + "," + str(mid_midpoint) + "," + str(midpoint_cur[1])
+                        output_file.write(output_text)   
+                        output_file.write("\n")              
 
 
             prev = line
@@ -162,6 +194,13 @@ def houghlines(src_img):
             y0_l = b_l * rho_l
             pt1_l = (int(x0_l + 1000*(-b_l)), int(y0_l + 1000*(a_l)))
             pt2_l = (int(x0_l - 1000*(-b_l)), int(y0_l - 1000*(a_l)))
+
+
+            ##### TODO: ADD CODE FOR OTHER SCENARIOS (x value neg, x or y value greater than image width or height)
+            if(pt1_l[1] < 0): #if y value is negative
+                gradient = (pt2_l[1] - pt1_l[1]) / (pt2_l[0] - pt1_l[0])  #y2-y1 / x2-x1 to get slope
+                c = pt2_l[1] - gradient * pt2_l[0]
+                pt1_l = (int(-c/gradient), 0)
 
             #delta x should always be less than delta y to be a sort of vertical line
             delta_X = abs(pt2_l[0] - pt1_l[0]) 
