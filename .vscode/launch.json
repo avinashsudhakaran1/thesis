@@ -12,6 +12,16 @@
             "console": "integratedTerminal",
             "cwd": "C:/Users/Fred/Desktop/Thesis/ZED",
             "justMyCode": true
+        },
+        {
+            "name": "Python: YOLO v5",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "cwd": "C:/Users/Fred/Desktop/Thesis/yolov5-master",
+            "justMyCode": true,
+            "args": ["--source", "C:/Users/Fred/Desktop/Thesis/doorway.avi","--weights","C:/Users/Fred/Desktop/Thesis/yolov5-master/runs/train/exp7/weights/best.pt"]
         }
     ]
 }

@@ -1,7 +1,7 @@
 import os
 import shutil
 
-labels = os.listdir('./labels')
+labels = os.listdir('./yolov5labels')
 
 for label in labels:
-    shutil.copy('./Deeplabv3_custom/Doors/Images/'+label , './NewDoors/'+label)
+    shutil.copy(f'./Deeplabv3_custom/inputs/Doors/Images/{label[:-4]}.png' , f'./yolov5doors/{label[:-4]}.png')

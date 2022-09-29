@@ -37,6 +37,7 @@ labels
 NewDoors
 
 *.svo
+*.avi
 
 zed/export4
 zed/export3
@@ -49,3 +50,5 @@ ZED/detection.mp4
 ZED/door_location.csv
 ZED/ogl_viewer
 ZED/direction_output.csv
+
+yolov5newdataset

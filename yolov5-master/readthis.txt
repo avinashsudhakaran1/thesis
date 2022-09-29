@@ -1,5 +1,14 @@
+ORIGINAL DATASET:
 training was done with 300 epochs and 16 batch size - the weights are in best.pt
 
 folder: train > exp7
 
 detect folder: detect > 18,19
+
+
+MODIFIED SEGMENTATION DATASET:
+training was done with 300 epochs and 16 batch size - the weights are in best.pt
+
+folder: train > exp9, 11, 12(100 epochs, 16 batch), 13 (300 epochs, 16 batch)
+
+detect folder: detect > 30, 31, 32(main one), 33 (300 ep), 34(indoor.svo)
