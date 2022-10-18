@@ -95,9 +95,12 @@ def main():
                 tz = round(zed_pose.get_translation(py_translation).get()[2], 3)
                 print("Translation: Tx: {0}, Ty: {1}, Tz {2}, Timestamp: {3}".format(tx, ty, tz, zed_pose.timestamp.get_milliseconds()))
 
+                py_orientation = sl.Orientation()
+                ox = round(zed_pose.get_orientation(py_orientation).get()[0], 3) # get orientation of wheelchair
+                print(ox)
                 z_diff = abs(point_cloud_np[2] - tz)
                 x_diff = point_cloud_np[0] - tx
-                output_angle = (math.atan2(z_diff,x_diff) * 180/np.pi )  - 90
+                output_angle = (math.atan2(z_diff,x_diff) * 180/np.pi )  - 90 #-x (commented out for testing but may need to be added in for rotation of wheelchair)
                 print(f"Output: z_diff: {z_diff}, x_diff: {x_diff}, output angle {output_angle}\n")
                 
                 if(not np.isnan(output_angle)):
