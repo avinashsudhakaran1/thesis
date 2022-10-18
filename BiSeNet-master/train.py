@@ -166,8 +166,10 @@ def main(params):
     # build model
     os.environ['CUDA_VISIBLE_DEVICES'] = args.cuda
     model = BiSeNet(args.num_classes, args.context_path)
-    if torch.cuda.is_available() and args.use_gpu:
-        model = torch.nn.DataParallel(model).cuda()
+    device = ("cuda" if torch.cuda.is_available() else "cpu") # Use GPU or CPU for training
+    model=model.to(device)
+    # if torch.cuda.is_available() and args.use_gpu:
+    #     model = torch.nn.DataParallel(model).cuda()
 
     # build optimizer
     if args.optimizer == 'rmsprop':

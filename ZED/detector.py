@@ -4,13 +4,14 @@ import math
 import numpy as np
 import sys
 import pyzed.sl as sl
+import time
 
 img_array = []
 def main():
-    images = os.listdir('./export3')
+    # images = os.listdir('./export3')
     
     # Specify SVO path parameter
-    svo_input_path = r"C:/Users/Fred/Desktop/Thesis/doorway.svo"
+    svo_input_path = r"D:/ZED data/doorway.svo"
     init_params = sl.InitParameters()
     init_params.set_from_svo_file(str(svo_input_path))
     init_params.svo_real_time_mode = False  # Don't convert in realtime
@@ -39,14 +40,18 @@ def main():
 
     nb_frames = zed.get_svo_number_of_frames()
 
-    output_file = open("door_location.csv","a")
+    output_file = open("door_location.csv","w")
+    frame_count = 0 # to count total frames
+    total_fps = 0 # to get the final frames per second
     # img_array = []
     #OUTPUT AS VIDEO
     video = cv2.VideoWriter('detection.mp4',cv2.VideoWriter_fourcc(*'mp4v'), 10, (1920, 1080))
     while True:
         if zed.grab(rt_param) == sl.ERROR_CODE.SUCCESS:
             svo_position = zed.get_svo_position()
-
+            print(svo_position)
+            # get the start time
+            start_time = time.time()
             # Retrieve SVO images
             zed.retrieve_image(left_image, sl.VIEW.LEFT)
             zed.retrieve_image(depth_image, sl.VIEW.DEPTH)
@@ -65,8 +70,17 @@ def main():
             if(len(valid_line_arr) > 0):
                 img_out = drawlines(src_img, valid_line_arr)
                 video.write(img_out[:,:,:3])
+            
+            # get the end time
+            end_time = time.time()
+            # get the current fps
+            fps = 1 / (end_time - start_time)
+            # add current fps to total fps
+            total_fps += fps
+            # increment frame count
+            frame_count += 1
             # Check if we have reached the end of the video
-            if svo_position >= 50:#(nb_frames - 1):  # End of SVO
+            if svo_position >= (nb_frames - 1):  # End of SVO
                 sys.stdout.write("\nSVO end has been reached. Exiting now.\n")
                 break
    
@@ -79,6 +93,9 @@ def main():
     output_file.close()
     cv2.destroyAllWindows()
     zed.close()
+    # calculate and print the average FPS
+    avg_fps = total_fps / frame_count
+    print(f"Average FPS: {avg_fps:.3f}") 
     return 0
     
 
@@ -88,7 +105,7 @@ def drawlines(img, arr):
         pt1_l = line[0]
         pt2_l = line[1]
 
-        cv2.line(img, pt1_l, pt2_l, (0,0,255), 3, cv2.LINE_AA)
+        cv2.line(img, pt1_l, pt2_l, (0,0,255), 5, cv2.LINE_AA)
     
     cv2.imshow("Image with lines", img)
     # cv2.imwrite("./imagewithlines.jpg",src_img)
@@ -101,7 +118,7 @@ def find_gaps(line_arr,depth_img, point_cloud,svo_position, output_file):
 
     door_error_thresh = 20
     open_door_thresh = 30
-
+    
     #sort line array based on the x value of the first tuple (start point x) so that we can scan from left to right
     line_arr.sort(key=lambda tup: tup[0])
 
@@ -154,17 +171,20 @@ def find_gaps(line_arr,depth_img, point_cloud,svo_position, output_file):
                     if(middle_distance - min(left_distance,right_distance)  > open_distance_threshold):
                         #clear old state
                         valid_line_arr.clear()
+                        # if(left_distance <= 2):
+                        # print(f"LEFT {left_distance}")
+                        # print(f"RIGHT {right_distance}")
                         #we have a valid gap so append the lines we want to keep on the image
                         valid_line_arr.append(prev)
                         valid_line_arr.append(line)
-                        # Get and print distance value in mm at the center of the image
+                        # Get and print distance value in m at the center of the image
                         # We measure the distance camera - object using Euclidean distance
-                        print(midpoint_cur[0])
-                        print(midpoint_cur[1])
+                        # print(midpoint_cur[0])
+                        # print(midpoint_cur[1])
                         err, pc_val = point_cloud.get_value(midpoint_cur[0],midpoint_cur[1])
 
                         distance = math.sqrt(pc_val[0] * pc_val[0] + pc_val[1] * pc_val[1] + pc_val[2] * pc_val[2])
-                        print(distance)   
+                        # print(distance)   
 
                         #output coordinates of door to file
                         output_text = str(svo_position) + "," + str(mid_midpoint) + "," + str(midpoint_cur[1])

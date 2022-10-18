@@ -15,7 +15,7 @@ def main():
     model = load_model()
     
     # Specify SVO path parameter
-    svo_input_path = r"C:/Users/Fred/Desktop/Thesis/doorway.svo"
+    svo_input_path = r"D:/ZED data/indoor.svo"
     init_params = sl.InitParameters()
     init_params.set_from_svo_file(str(svo_input_path))
     # init_params.svo_real_time_mode = False  # Don't convert in realtime
@@ -41,38 +41,51 @@ def main():
     sys.stdout.write("Starting video....\n")
 
     nb_frames = zed.get_svo_number_of_frames()
-
+    frame_count = 0 # to count total frames
+    total_fps = 0 # to get the final frames per second
     img_array = []
     while True:
         if zed.grab(rt_param) == sl.ERROR_CODE.SUCCESS:
             svo_position = zed.get_svo_position()
-            # Retrieve SVO images
-            zed.retrieve_image(left_image, sl.VIEW.LEFT)
-            src_img = left_image.get_data()
-            
-            start = time.time()
+            print(svo_position)
+            if(svo_position > 1115):
+                # Retrieve SVO images
+                zed.retrieve_image(left_image, sl.VIEW.LEFT)
+                src_img = left_image.get_data()
+                
+                start = time.time()
 
-            segmented_img = segment(model,src_img)
-            
+                segmented_img = segment(model,src_img)
+                
 
-            post_seg = time.time()
-            post_seg_diff = post_seg - start
-            print("SEGMENT TIME:   " + str(post_seg_diff))
-            
-            find_blob(segmented_img,src_img)
+                post_seg = time.time()
+                post_seg_diff = post_seg - start
+                print("SEGMENT TIME:   " + str(post_seg_diff))
+                
+                find_blob(segmented_img,src_img,svo_position)
 
-            blob_time = time.time() 
-            blob_time_diff = (blob_time - post_seg)
-            print("BLOB TIME:::    " + str(blob_time_diff))
-            
+                blob_time = time.time() 
+                blob_time_diff = (blob_time - post_seg)
+                print("BLOB TIME:::    " + str(blob_time_diff))
+                # get the end time
+                end_time = time.time()
+                # get the current fps
+                fps = 1 / (end_time - start)
+                # add current fps to total fps
+                total_fps += fps
+                # increment frame count
+                frame_count += 1
             # Check if we have reached the end of the video
-            if svo_position >= (nb_frames - 1):  # End of SVO
+            if svo_position >=3845:#(nb_frames - 1):  # End of SVO
                 sys.stdout.write("\nSVO end has been reached. Exiting now.\n")
                 break
             
     #closing all open windows 
     cv2.destroyAllWindows()
     zed.close()
+    # calculate and print the average FPS
+    avg_fps = total_fps / frame_count
+    print(f"Average FPS: {avg_fps:.3f}") 
     return 0
 
 
@@ -81,7 +94,8 @@ def main():
 
 
 # input_folder = "./inputs/70TestDoors"
-output_folder = "C:/Users/Fred/Desktop/Thesis/Deeplabv3_custom/outputs/newdataset_secondtry"
+# output_folder = "C:/Users/Fred/Desktop/Thesis/Deeplabv3_custom/outputs/newdataset_secondtry"
+output_folder = "C:/Users/Fred/Desktop/Thesis/Deeplabv3_custom/outputs/20221012_e75b4"
 
 ######     MODEL     ###########
 def load_model():
@@ -89,19 +103,17 @@ def load_model():
     print("Model::::" + output_folder + 'weights.pt')
     # Set the model to evaluate mode
     model.eval()
-    # Read the log file using pandas into a dataframe
-    # df = pd.read_csv(output_folder + '/log.csv')
-    ### Training and testing loss, f1_score and auroc values for the model trained on the CrackForest dataset
-    # Plot all the values with respect to the epochs
-    # df.plot(x='epoch',figsize=(15,8))
-    # print(df[['Train_auroc','Test_auroc']].max())
     return model
 
 
 def segment(model,img):
     #transpose to rgb image format 
-    img = img[:,:,:3].transpose(2,0,1).reshape(1,3,1080,1920)
-
+    img = img[:,:,:3].transpose(2,0,1)
+    # img = cv2.resize(img[0][0],(720,1280))
+    # img = np.stack((img,)*3, axis=-1)
+    # img = img.reshape(1,3,720,1280)
+    img = img.reshape(1,3,1080,1920)
+    # img = cv2.resize(img[0][0],(360,640)).reshape(1,3,360,640)
     with torch.no_grad():
         a = model(torch.from_numpy(img).type(torch.cuda.FloatTensor)/255) #/255 makes array of numbers from 0 to 1
 
@@ -119,10 +131,10 @@ def segment(model,img):
     # cv2.imshow("Median Image", median_img_array* np.uint8(255))
     # cv2.imshow("Mean Image", mean_img_array* np.uint8(255))
 
-    return median_img_array
+    return mean_img_array
 
 
-def find_blob(segmented_img,rgb_image):
+def find_blob(segmented_img,rgb_image,svo_position):
     #######     FIND BLOB    ########
     #https://stackoverflow.com/questions/56589691/how-to-leave-only-the-largest-blob-in-an-image 
 
@@ -135,16 +147,24 @@ def find_blob(segmented_img,rgb_image):
     contours, _ = cv2.findContours(inter, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     biggest_c = max(contours, key=cv2.contourArea)
     x,y,w,h = cv2.boundingRect(biggest_c)
-
+    
     # Output
     out = np.zeros(inter.shape, np.uint8)
     out = cv2.bitwise_and(segmented_img_bw, out)
-    # draw the biggest contour (c) in green
-    cv2.drawContours(rgb_image[:,:], [biggest_c], -1, 255, cv2.FILLED)
-    cv2.rectangle(rgb_image[:,:],(x,y),(x+w,y+h),255,10)
 
-    cv2.imshow('out', rgb_image[:,:])
-    cv2.waitKey(1)
+    #reconfigure rgb image for cv2
+    rgb_image = rgb_image[:,:]
+    # draw the biggest contour (c) in green
+    cv2.drawContours(rgb_image, [biggest_c], -1, 255, cv2.FILLED)
+    cv2.rectangle(rgb_image,(x,y),(x+w,y+h),255,10)
+    rectangle_area = w*h
+    blob_area = cv2.contourArea(biggest_c)
+
+    confidence = (blob_area/rectangle_area) * 100
+
+    # cv2.imshow('out', rgb_image)
+    # cv2.waitKey(1)
+    # cv2.imwrite(f'C:/Users/Fred/Desktop/Thesis/Deeplabv3_custom/doorway_ambient/door_{svo_position}_{confidence:.2f}.png', rgb_image)
 
 
 if __name__ == "__main__":

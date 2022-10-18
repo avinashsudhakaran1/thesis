@@ -36,6 +36,7 @@ def main():
     normal_map = sl.Mat()
     depth = sl.Mat()
     zed_pose = sl.Pose()
+    camera_pose = sl.Pose()
     zed_sensors = sl.SensorsData()
 
     f_in = open("traversal_input.csv","r")
@@ -56,10 +57,16 @@ def main():
             svo_position = zed.get_svo_position()
             zed.retrieve_measure(point_cloud, sl.MEASURE.XYZRGBA)
             zed.retrieve_measure(depth, sl.MEASURE.DEPTH)
-            zed.get_position(zed_pose, sl.REFERENCE_FRAME.WORLD)
+            tracking_state = zed.get_position(zed_pose, sl.REFERENCE_FRAME.WORLD)
+            zed.get_position(camera_pose, sl.REFERENCE_FRAME.CAMERA)
             zed.get_sensors_data(zed_sensors, sl.TIME_REFERENCE.IMAGE)
             zed_imu = zed_sensors.get_imu_data()
             viewer.updateData(point_cloud)
+
+            # Get the distance between the center of the camera and the left eye
+            translation_left_to_center = zed.get_camera_information().calibration_parameters.T[0]
+            # Retrieve and transform the pose data into a new frame located at the center of the camera
+            transform_pose(zed_pose.pose_data(sl.Transform()), translation_left_to_center)
             
             # for row in point_cloud.get_data()[0]:
             #     freq_value = np.bincount(point_cloud).argmax()
@@ -91,6 +98,18 @@ def main():
 
     viewer.exit()
     zed.close()
+
+def transform_pose(pose, tx) :
+    transform_ = sl.Transform()
+    transform_.set_identity()
+    # Translate the tracking frame by tx along the X axis
+    transform_[0][3] = tx
+    # Pose(new reference frame) = M.inverse() * pose (camera frame) * M, where M is the transform between the two frames
+    transform_inv = sl.Transform()
+    transform_inv.init_matrix(transform_)
+    transform_inv.inverse()
+    pose = transform_inv * pose * transform_
+
 
 if __name__ == "__main__":
     main()

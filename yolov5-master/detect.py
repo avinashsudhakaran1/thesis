@@ -28,7 +28,7 @@ import argparse
 import os
 import sys
 from pathlib import Path
-
+import time
 import torch
 import torch.backends.cudnn as cudnn
 
@@ -104,10 +104,15 @@ def run(
         bs = 1  # batch_size
     vid_path, vid_writer = [None] * bs, [None] * bs
 
+    frame_count = 0 # to count total frames
+    total_fps = 0 # to get the final frames per second
+
     # Run inference
     model.warmup(imgsz=(1 if pt else bs, 3, *imgsz))  # warmup
     dt, seen = [0.0, 0.0, 0.0], 0
     for path, im, im0s, vid_cap, s in dataset:
+        # get the start time
+        start_time = time.time()
         t1 = time_sync()
         im = torch.from_numpy(im).to(device)
         im = im.half() if model.fp16 else im.float()  # uint8 to fp16/32
@@ -175,6 +180,10 @@ def run(
             if view_img:
                 cv2.imshow(str(p), im0)
                 cv2.waitKey(1)  # 1 millisecond
+                # try:
+                #     cv2.imwrite(f'C:/Users/Fred/Desktop/Thesis/yolov5-master/doorway_manual/door_{seen}_{conf:.2f}.png', im0)
+                # except UnboundLocalError:
+                #     pass
 
             # Save results (image with detections)
             if save_img:
@@ -195,9 +204,19 @@ def run(
                         vid_writer[i] = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
                     vid_writer[i].write(im0)
 
+        # get the end time
+        end_time = time.time()
+        # get the current fps
+        fps = 1 / (end_time - start_time)
+        # add current fps to total fps
+        total_fps += fps
+        # increment frame count
+        frame_count += 1
         # Print time (inference-only)
         LOGGER.info(f'{s}Done. ({t3 - t2:.3f}s)')
-
+    # calculate and print the average FPS
+    avg_fps = total_fps / frame_count
+    print(f"Average FPS: {avg_fps:.3f}") 
     # Print results
     t = tuple(x / seen * 1E3 for x in dt)  # speeds per image
     LOGGER.info(f'Speed: %.1fms pre-process, %.1fms inference, %.1fms NMS per image at shape {(1, 3, *imgsz)}' % t)
@@ -214,7 +233,7 @@ def parse_opt():
     parser.add_argument('--source', type=str, default=ROOT / 'data/images', help='file/dir/URL/glob, 0 for webcam')
     parser.add_argument('--data', type=str, default=ROOT / 'data/coco128.yaml', help='(optional) dataset.yaml path')
     parser.add_argument('--imgsz', '--img', '--img-size', nargs='+', type=int, default=[640], help='inference size h,w')
-    parser.add_argument('--conf-thres', type=float, default=0.25, help='confidence threshold')
+    parser.add_argument('--conf-thres', type=float, default=0.7, help='confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.45, help='NMS IoU threshold')
     parser.add_argument('--max-det', type=int, default=1000, help='maximum detections per image')
     parser.add_argument('--device', default='', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
