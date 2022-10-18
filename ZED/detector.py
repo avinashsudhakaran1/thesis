@@ -43,7 +43,7 @@ def main():
     output_file = open("door_location.csv","w")
     frame_count = 0 # to count total frames
     total_fps = 0 # to get the final frames per second
-    # img_array = []
+
     #OUTPUT AS VIDEO
     video = cv2.VideoWriter('detection.mp4',cv2.VideoWriter_fourcc(*'mp4v'), 10, (1920, 1080))
     while True:
@@ -55,20 +55,14 @@ def main():
             # Retrieve SVO images
             zed.retrieve_image(left_image, sl.VIEW.LEFT)
             zed.retrieve_image(depth_image, sl.VIEW.DEPTH)
-            # Retrieve colored point cloud. Point cloud is aligned on the left image.
             zed.retrieve_measure(point_cloud, sl.MEASURE.XYZRGBA)
-            # for image in images:
-            #     if 'left' in image:
-            # path = f"C:/Users/Fred/Desktop/Thesis/ZED/export3/{image}"
-            # depth_image_name = "depth" + image[4:]
-            # depth_path = f"C:/Users/Fred/Desktop/Thesis/ZED/export3/{depth_image_name}"
             src_img = left_image.get_data()
             depth_img = depth_image.get_data()
 
             line_arr = houghlines(src_img)
             valid_line_arr = find_gaps(line_arr,depth_img,point_cloud,svo_position, output_file)
             if(len(valid_line_arr) > 0):
-                img_out = drawlines(src_img, valid_line_arr)
+                img_out = drawlines(src_img, valid_line_arr,svo_position)
                 video.write(img_out[:,:,:3])
             
             # get the end time
@@ -100,7 +94,7 @@ def main():
     
 
 
-def drawlines(img, arr):
+def drawlines(img, arr,pos):
     for line in arr:
         pt1_l = line[0]
         pt2_l = line[1]
@@ -108,7 +102,8 @@ def drawlines(img, arr):
         cv2.line(img, pt1_l, pt2_l, (0,0,255), 5, cv2.LINE_AA)
     
     cv2.imshow("Image with lines", img)
-    # cv2.imwrite("./imagewithlines.jpg",src_img)
+    # path = f"D:/ZED data/zed_doorwayboundary/{pos}.png"
+    # cv2.imwrite(path,img)
     cv2.waitKey(1)
     return img
 
@@ -117,7 +112,8 @@ def find_gaps(line_arr,depth_img, point_cloud,svo_position, output_file):
     prev = None
 
     door_error_thresh = 20
-    open_door_thresh = 30
+    doorway_width_thresh = 550
+    open_distance_threshold = 0.5 #(metres)
     
     #sort line array based on the x value of the first tuple (start point x) so that we can scan from left to right
     line_arr.sort(key=lambda tup: tup[0])
@@ -132,7 +128,7 @@ def find_gaps(line_arr,depth_img, point_cloud,svo_position, output_file):
                 prev_pt_1 = prev[0] #start of prev line
                 prev_pt_2 = prev[1] #end of prev line
 
-                if(abs(pt_1[0] - prev_pt_1[0]) > 200): #if the difference in x values of the two lines are legit
+                if(abs(pt_1[0] - prev_pt_1[0]) < doorway_width_thresh and abs(pt_1[0] - prev_pt_1[0]) > 200): #if the difference in x values of the two lines are legit
                     #check the depth values here
                     if ( int((pt_1[0] + pt_2[0])/2) + door_error_thresh <= depth_img.shape[1]): #if the threshold doesnt push it past left edge of the image
                         midpoint_cur = ( int((pt_1[0] + pt_2[0])/2) + door_error_thresh , int((pt_1[1] + pt_2[1])/2) )   #calculate midpoint of right line and move point to the right a bit more
@@ -166,7 +162,7 @@ def find_gaps(line_arr,depth_img, point_cloud,svo_position, output_file):
                     # depth_arr = depth_arr[midpoint_prev[0] : midpoint_cur[0]]
 
                     # if(avg_front_plane - mid_depth_check  > open_door_thresh):
-                    open_distance_threshold = 0.5 #(metres)
+                    
 
                     if(middle_distance - min(left_distance,right_distance)  > open_distance_threshold):
                         #clear old state
