@@ -15,7 +15,7 @@ def main():
     model = load_model()
     
     # Specify SVO path parameter
-    svo_input_path = r"D:/ZED data/indoor.svo"
+    svo_input_path = r"D:/ZED data/doorway.svo"
     init_params = sl.InitParameters()
     init_params.set_from_svo_file(str(svo_input_path))
     # init_params.svo_real_time_mode = False  # Don't convert in realtime
@@ -43,12 +43,14 @@ def main():
     nb_frames = zed.get_svo_number_of_frames()
     frame_count = 0 # to count total frames
     total_fps = 0 # to get the final frames per second
+
+    outfile = open("./outfile.csv","w")
     img_array = []
     while True:
         if zed.grab(rt_param) == sl.ERROR_CODE.SUCCESS:
             svo_position = zed.get_svo_position()
             print(svo_position)
-            if(svo_position > 1115):
+            if(svo_position > 1700):
                 # Retrieve SVO images
                 zed.retrieve_image(left_image, sl.VIEW.LEFT)
                 src_img = left_image.get_data()
@@ -62,7 +64,7 @@ def main():
                 post_seg_diff = post_seg - start
                 print("SEGMENT TIME:   " + str(post_seg_diff))
                 
-                find_blob(segmented_img,src_img,svo_position)
+                find_blob(segmented_img,src_img,svo_position,outfile)
 
                 blob_time = time.time() 
                 blob_time_diff = (blob_time - post_seg)
@@ -83,6 +85,7 @@ def main():
     #closing all open windows 
     cv2.destroyAllWindows()
     zed.close()
+    outfile.close()
     # calculate and print the average FPS
     avg_fps = total_fps / frame_count
     print(f"Average FPS: {avg_fps:.3f}") 
@@ -134,7 +137,7 @@ def segment(model,img):
     return mean_img_array
 
 
-def find_blob(segmented_img,rgb_image,svo_position):
+def find_blob(segmented_img,rgb_image,svo_position, outfile):
     #######     FIND BLOB    ########
     #https://stackoverflow.com/questions/56589691/how-to-leave-only-the-largest-blob-in-an-image 
 
@@ -161,6 +164,9 @@ def find_blob(segmented_img,rgb_image,svo_position):
     blob_area = cv2.contourArea(biggest_c)
 
     confidence = (blob_area/rectangle_area) * 100
+
+    output_string = f"{svo_position},{x},{y},{w},{h},{confidence:.2f}\n"
+    outfile.write(output_string)
 
     # cv2.imshow('out', rgb_image)
     # cv2.waitKey(1)
